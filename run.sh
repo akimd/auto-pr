@@ -37,7 +37,7 @@ git commit -asm "${DESCRIPTION}"
 echo "Update the proxy vendoring"
 cd ./v1/docker_proxy
 ./update-vendor.sh "${DOCKER_COMMIT}"
-git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}"
+git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}" || true
 cd -
 
 echo "Push changes"
