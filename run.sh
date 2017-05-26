@@ -5,12 +5,12 @@ set -e
 echo "Read ${DESCRIPTOR_URL}"
 DESCRIPTOR=$(getme Copy "${DESCRIPTOR_URL}" -)
 MOBY_SHA1=$(echo "${DESCRIPTOR}" | jq -r '.moby."git-commit"')
-BINARY_URL=$(echo "${DESCRIPTOR}" | jq -r '.moby.docker."binary-artifact-url"')
+BINARY_URL=$(echo "${DESCRIPTOR}" | jq -r '.moby.docker."binary-artifact-url" // .moby."docker-url"')
 BRANCH="moby-${MOBY_SHA1}"
 DESCRIPTION="Update Moby to ${MOBY_SHA1}"
 
 echo "Get sources"
-git clone -n --depth=1 https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git sources
+git clone -b "${BASE}" https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git sources
 
 echo "Retrieve docker commit"
 echo ${BINARY_URL}
@@ -37,7 +37,7 @@ git commit -asm "${DESCRIPTION}"
 echo "Update the proxy vendoring"
 cd ./v1/docker_proxy
 ./update-vendor.sh "${DOCKER_COMMIT}"
-git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}" || true
+git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}"
 cd -
 
 echo "Push changes"
