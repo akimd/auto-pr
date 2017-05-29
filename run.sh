@@ -4,10 +4,21 @@ set -e
 
 echo "Read ${DESCRIPTOR_URL}"
 DESCRIPTOR=$(getme Copy "${DESCRIPTOR_URL}" -)
+
 MOBY_SHA1=$(echo "${DESCRIPTOR}" | jq -r '.moby."git-commit"')
-BINARY_URL=$(echo "${DESCRIPTOR}" | jq -r '.moby.docker."binary-artifact-url" // .moby."docker-url"')
+if [ -z "${MOBY_SHA1}" ]; then
+  echo "Couldnt find moby's commit"
+  exit 1
+fi
+
 BRANCH="moby-${MOBY_SHA1}"
 DESCRIPTION="Update Moby to ${MOBY_SHA1}"
+
+BINARY_URL=$(echo "${DESCRIPTOR}" | jq -r '.moby.docker."binary-artifact-url" // .moby."docker-url" // ""')
+if [ -z "${BINARY_URL}" ]; then
+  echo "Couldnt find the url to download docker"
+  exit 1
+fi
 
 echo "Get sources"
 git clone -b "${BASE}" https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git sources
@@ -18,9 +29,9 @@ getme Extract "${BINARY_URL}" **/binary-client/docker /tmp/docker
 set +e
 DOCKER_COMMIT=$(/tmp/docker version -f '{{ .Client.GitCommit }}')
 set -e
-echo "${DOCKER_COMMIT}"
+echo "Docker commit: ${DOCKER_COMMIT}"
 
-echo "Switch to different branch"
+echo "Switch to branch [${BRANCH}]"
 cd sources
 git checkout -b "${BRANCH}"
 
@@ -36,7 +47,7 @@ git commit -asm "${DESCRIPTION}"
 
 echo "Update the proxy vendoring"
 cd ./v1/docker_proxy
-./update-vendor.sh "${DOCKER_COMMIT}"
+sh -x ./update-vendor.sh "${DOCKER_COMMIT}"
 git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}"
 cd -
 
