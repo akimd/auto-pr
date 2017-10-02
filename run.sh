@@ -37,7 +37,7 @@ git checkout -b "${BRANCH}"
 
 echo "Patch ${BUILD_JSON}"
 cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
-jq ".moby.descriptor=\"${DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+jq ".linuxkit.descriptor=\"${DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
 rm "${BUILD_JSON}.bak"
 
 echo "Commit changes"
