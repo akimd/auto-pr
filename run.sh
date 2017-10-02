@@ -55,4 +55,4 @@ echo "Push changes"
 git push -f origin "${BRANCH}"
 
 echo "Open a PR"
-hub pull-request -m "${DESCRIPTION}" -b "${BASE}"
+hub pull-request -m "${DESCRIPTION}" -b "${BASE}" -r gtardif,ebriney
