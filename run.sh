@@ -37,7 +37,13 @@ git checkout -b "${BRANCH}"
 
 echo "Patch ${BUILD_JSON}"
 cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
-jq ".linuxkit.descriptor=\"${DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+jq ".linuxkit.descriptor.mac=\"${DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+WIN_DESCRIPTOR_URL=$(echo "${DESCRIPTOR_URL}" | sed -e 's/docker-for-mac.iso/docker-for-win.iso/g' )
+cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
+jq ".linuxkit.descriptor.win=\"${WIN_DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
+KUB_DESCRIPTOR_URL=$(echo "${DESCRIPTOR_URL}" | sed -e 's/docker-for-mac.iso/docker-kubernetes-for-mac.iso/g' )
+jq ".linuxkit.descriptor.kub=\"${KUB_DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
 rm "${BUILD_JSON}.bak"
 
 echo "Commit changes"
