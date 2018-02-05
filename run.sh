@@ -1,64 +1,47 @@
 #!/bin/sh
 
-set -e
-
-echo "Read ${DESCRIPTOR_URL}"
-DESCRIPTOR=$(getme Copy "${DESCRIPTOR_URL}" -)
-
-MOBY_SHA1=$(echo "${DESCRIPTOR}" | jq -r '.moby."git-commit"')
-if [ -z "${MOBY_SHA1}" ]; then
-  echo "Couldnt find moby's commit"
-  exit 1
-fi
-
-BRANCH="moby-${MOBY_SHA1}"
-DESCRIPTION="Update Moby to ${MOBY_SHA1}"
-
-BINARY_URL=$(echo "${DESCRIPTOR}" | jq -r '.moby.docker."binary-artifact-url" // .moby."docker-url" // ""')
-if [ -z "${BINARY_URL}" ]; then
-  echo "Couldnt find the url to download docker"
-  exit 1
-fi
-
-echo "Get sources"
-git clone -b "${BASE}" https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git sources
+set -ex
+git config --global user.name "${USER_NAME}"
+git config --global user.email "${USER_EMAIL}"
 
 echo "Retrieve docker commit"
-echo ${BINARY_URL}
-getme Extract "${BINARY_URL}" **/binary-client/docker /tmp/docker
+getme Extract "${BUILD_URL}/bundles-ce-binary.tar.gz" "bundles/*/binary-client/docker" /tmp/docker
 set +e
 DOCKER_COMMIT=$(/tmp/docker version -f '{{ .Client.GitCommit }}')
+DOCKER_VERSION=$(/tmp/docker version -f '{{ .Client.Version }}')
 set -e
 echo "Docker commit: ${DOCKER_COMMIT}"
 
-echo "Switch to branch [${BRANCH}]"
-cd sources
+BRANCH="docker-ce-${DOCKER_VERSION}-${DOCKER_COMMIT}"
+
+echo "Get sources"
+export GOPATH="/go"
+mkdir -p "$GOPATH/src/github.com/docker"
+cd "$GOPATH/src/github.com/docker"
+git clone -b ${BASE} git@github.com:${GITHUB_REPO}.git
+cd pinata
 git checkout -b "${BRANCH}"
 
-echo "Patch ${BUILD_JSON}"
-cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
-jq ".linuxkit.descriptor.mac=\"${DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
-WIN_DESCRIPTOR_URL=$(echo "${DESCRIPTOR_URL}" | sed -e 's/docker-for-mac.iso/docker-for-win.iso/g' )
-cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
-jq ".linuxkit.descriptor.win=\"${WIN_DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
-cp "${BUILD_JSON}" "${BUILD_JSON}.bak"
-KUB_DESCRIPTOR_URL=$(echo "${DESCRIPTOR_URL}" | sed -e 's/docker-for-mac.iso/docker-kubernetes-for-mac.iso/g' )
-jq ".linuxkit.descriptor.kub=\"${KUB_DESCRIPTOR_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
-rm "${BUILD_JSON}.bak"
-
-echo "Commit changes"
-git config --global user.name "${USER_NAME}"
-git config --global user.email "${USER_EMAIL}"
-git commit -asm "${DESCRIPTION}"
+cp build.json build.json.bak
+jq ".docker.artifacts=\"${BUILD_URL}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+cp build.json build.json.bak
+jq ".docker.version=\"${DOCKER_VERSION}\"" "${BUILD_JSON}.bak" > "${BUILD_JSON}"
+rm build.json.bak
+jq 'with_entries(select(.key == ("docker")))' build.json > editions.moby/version.json
+git diff
+git commit -asm "Update docker-ce to ${DOCKER_VERSION} (${DOCKER_COMMIT})"
 
 echo "Update the proxy vendoring"
-cd ./v1/docker_proxy
-sh -x ./update-vendor.sh "${DOCKER_COMMIT}"
-git commit -asm "Update proxy vendoring to ${DOCKER_COMMIT}" || true
-cd -
+ls -al common/scripts
+cd common/scripts/ 
+sh -x ./update-docker-ce-vendor 
+cd ../..
+cp Gopkg.lock editions.moby/Gopkg.lock
+git commit -asm "Update docker-ce vendoring"
 
 echo "Push changes"
-git push -f origin "${BRANCH}"
+git push origin "${BRANCH}"
 
 echo "Open a PR"
-hub pull-request -m "${DESCRIPTION}" -b "${BASE}" -r gtardif,ebriney
+MESSAGE="Update docker-ce to ${DOCKER_VERSION} (${DOCKER_COMMIT})"
+hub pull-request -m "${MESSAGE}" -b "${BASE}" -r gtardif
