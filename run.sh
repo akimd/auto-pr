@@ -37,7 +37,7 @@ cd common/scripts/
 sh -x ./update-docker-ce-vendor 
 cd ../..
 cp Gopkg.lock editions.moby/Gopkg.lock
-git commit -asm "Update docker-ce vendoring"
+git commit -asm "Propagate vendoring changes to subtree"
 
 echo "Push changes"
 git push origin "${BRANCH}"
